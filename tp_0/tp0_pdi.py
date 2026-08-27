@@ -18,19 +18,59 @@ import matplotlib.pyplot as plt
 
 from PIL import Image, ImageTk
 
+# ============================================================
+# FUNCIONES DE PDI
+# ============================================================
+
+def escala_grises(imagen):
+    """
+    Convierte una imagen RGB a escala de grises.
+
+    La imagen llega como array:
+        alto x ancho x 3
+
+    El promedio de los tres canales genera un único valor
+    de intensidad.
+
+    Después repetimos ese canal 3 veces para conservar
+    el formato RGB.
+    """
+
+    gris = imagen.mean(axis=2)
+
+    resultado = np.stack(
+        [gris, gris, gris],
+        axis=2
+    )
+
+    return resultado
+
+
+def solo_canal(imagen, canal):
+    """
+    Conserva solamente un canal RGB.
+
+    canal:
+        0 -> R
+        1 -> G
+        2 -> B
+    """
+
+    resultado = np.zeros_like(imagen)
+
+    resultado[:, :, canal] = imagen[:, :, canal]
+
+    return resultado
+
+
 class AppPDI:
 
     def __init__(self, ventana):
 
         self.ventana = ventana
+        self.ventana.title("PDI - Tkinter + NumPy")
 
-        self.ventana.title(
-            "PDI - Tkinter + NumPy"
-        )
-
-        self.ventana.geometry(
-            "1100x650"
-        )
+        self.ventana.geometry("1100x650")
 
         # ----------------------------------------------------
         # Imágenes de la aplicación.
@@ -100,7 +140,6 @@ class AppPDI:
             padx=5
         )
 
-
         # ----------------------------------------------------
         # Panel central
         # ----------------------------------------------------
@@ -116,7 +155,6 @@ class AppPDI:
             pady=10
         )
 
-
         # ----------------------------------------------------
         # Zona de imágenes
         # ----------------------------------------------------
@@ -130,7 +168,6 @@ class AppPDI:
             fill="both",
             expand=True
         )
-
 
         # ----------------------------------------------------
         # Imagen de entrada
@@ -147,7 +184,6 @@ class AppPDI:
             padx=5
         )
 
-
         titulo_entrada = tk.Label(
             frame_entrada,
             text="ENTRADA",
@@ -157,7 +193,6 @@ class AppPDI:
         titulo_entrada.pack(
             pady=5
         )
-
 
         self.label_entrada = tk.Label(
             frame_entrada,
@@ -169,7 +204,6 @@ class AppPDI:
             fill="both",
             expand=True
         )
-
 
         # ----------------------------------------------------
         # Imagen resultado
@@ -186,7 +220,6 @@ class AppPDI:
             padx=5
         )
 
-
         titulo_resultado = tk.Label(
             frame_resultado,
             text="RESULTADO",
@@ -196,7 +229,6 @@ class AppPDI:
         titulo_resultado.pack(
             pady=5
         )
-
 
         self.label_resultado = tk.Label(
             frame_resultado,
@@ -208,7 +240,6 @@ class AppPDI:
             fill="both",
             expand=True
         )
-
 
         # ----------------------------------------------------
         # Panel de controles
@@ -234,7 +265,6 @@ class AppPDI:
             pady=10
         )
 
-
         # ----------------------------------------------------
         # Pasar resultado a entrada
         # ----------------------------------------------------
@@ -250,6 +280,49 @@ class AppPDI:
             pady=10
         )
 
+        # ----------------------------------------------------
+        # Opciones de procesamiento
+        # ----------------------------------------------------
+
+        self.operacion = tk.StringVar()
+
+        self.operacion.set(
+            "Sin procesamiento"
+        )
+
+        opciones = [
+            "Sin procesamiento",
+            "Escala de grises",
+            "Solo canal R",
+            "Solo canal G",
+            "Solo canal B"
+        ]
+
+        menu = tk.OptionMenu(
+            controles,
+            self.operacion,
+            *opciones
+        )
+
+        menu.pack(
+            fill="x",
+            pady=5
+        )
+
+        # ----------------------------------------------------
+        # Botón aplicar
+        # ----------------------------------------------------
+
+        boton_aplicar = tk.Button(
+            controles,
+            text="Aplicar operación",
+            command=self.aplicar_operacion
+        )
+
+        boton_aplicar.pack(
+            fill="x",
+            pady=10
+        )
 
         # ----------------------------------------------------
         # Histograma
@@ -282,7 +355,6 @@ class AppPDI:
             pady=5
         )
 
-
         boton_histograma = tk.Button(
             controles,
             text="Mostrar histograma",
@@ -293,7 +365,6 @@ class AppPDI:
             fill="x",
             pady=10
         )
-
 
         # ----------------------------------------------------
         # Estado
@@ -312,7 +383,6 @@ class AppPDI:
             pady=10
         )
 
-
     # ========================================================
     # ABRIR IMAGEN
     # ========================================================
@@ -329,12 +399,10 @@ class AppPDI:
         if not ruta:
             return
 
-
         # Pillow abre la imagen.
         imagen_pil = Image.open(
             ruta
         ).convert("RGB")
-
 
         # Convertimos Pillow -> NumPy.
         #
@@ -347,7 +415,6 @@ class AppPDI:
             np.array(imagen_pil) / 255.0
         )
 
-
         # Al comenzar, las tres imágenes son iguales.
         #
         # La original queda guardada sin modificaciones.
@@ -358,7 +425,6 @@ class AppPDI:
         self.imagen_procesada = (
             self.imagen_original.copy()
         )
-
 
         # Mostramos la misma imagen en ambos espacios.
         self.mostrar_imagen(
@@ -371,11 +437,78 @@ class AppPDI:
             self.label_resultado
         )
 
-
         self.estado.config(
             text="Imagen cargada correctamente."
         )
 
+    # ========================================================
+    # APLICAR OPERACIÓN
+    # ========================================================
+
+    def aplicar_operacion(self):
+
+        # Verificamos que exista una imagen.
+        if self.imagen_entrada is None:
+
+            messagebox.showwarning(
+                "Atención",
+                "Primero abrí una imagen."
+            )
+
+            return
+
+        # Obtenemos la opción seleccionada.
+        operacion = self.operacion.get()
+
+        imagen = self.imagen_entrada
+
+        # ----------------------------------------------------
+        # Acá empieza la conexión entre Tkinter y PDI.
+        # ----------------------------------------------------
+
+        if operacion == "Sin procesamiento":
+
+            resultado = imagen.copy()
+
+        elif operacion == "Escala de grises":
+
+            resultado = escala_grises(
+                imagen
+            )
+
+        elif operacion == "Solo canal R":
+
+            resultado = solo_canal(
+                imagen,
+                0
+            )
+
+        elif operacion == "Solo canal G":
+
+            resultado = solo_canal(
+                imagen,
+                1
+            )
+
+        elif operacion == "Solo canal B":
+
+            resultado = solo_canal(
+                imagen,
+                2
+            )
+
+        # Guardamos el resultado.
+        self.imagen_procesada = resultado
+
+        # Mostramos el resultado.
+        self.mostrar_imagen(
+            self.imagen_procesada,
+            self.label_resultado
+        )
+
+        self.estado.config(
+            text=f"Operación aplicada: {operacion}"
+        )
 
     # ========================================================
     # MOSTRAR IMAGEN
@@ -392,12 +525,10 @@ class AppPDI:
             ) * 255
         ).astype(np.uint8)
 
-
         # NumPy -> Pillow
         imagen_pil = Image.fromarray(
             imagen_uint8
         )
-
 
         # Reducimos el tamaño solamente para visualizarla.
         #
@@ -406,24 +537,20 @@ class AppPDI:
             (430, 500)
         )
 
-
         # Pillow -> Tkinter
         foto = ImageTk.PhotoImage(
             imagen_pil
         )
 
-
         # Guardamos la referencia en el Label para evitar
         # que Python elimine la imagen de memoria.
         label.foto = foto
-
 
         # Mostramos la imagen.
         label.config(
             image=foto,
             text=""
         )
-
 
     # ========================================================
     # PASAR RESULTADO A ENTRADA
@@ -440,23 +567,19 @@ class AppPDI:
 
             return
 
-
         # La imagen resultado pasa a ser la nueva entrada
         self.imagen_entrada = (
             self.imagen_procesada.copy()
         )
-
 
         self.mostrar_imagen(
             self.imagen_entrada,
             self.label_entrada
         )
 
-
         self.estado.config(
             text="La imagen resultado pasó a la entrada."
         )
-
 
     # ========================================================
     # RESTAURAR ORIGINAL
@@ -467,23 +590,19 @@ class AppPDI:
         if self.imagen_original is None:
             return
 
-
         # Recuperamos la copia original en el espacio de entrada.
         self.imagen_entrada = (
             self.imagen_original.copy()
         )
-
 
         self.mostrar_imagen(
             self.imagen_entrada,
             self.label_entrada
         )
 
-
         self.estado.config(
             text="Imagen original restaurada en la entrada."
         )
-
 
     # ========================================================
     # GUARDAR RESULTADO
@@ -500,20 +619,16 @@ class AppPDI:
 
             return
 
-
         ruta = filedialog.asksaveasfilename(
-            title="Guardar imagen procesada",
-            defaultextension=".png",
-            filetypes=[
-                ("PNG", "*.png"),
-                ("JPEG", "*.jpg"),
-                ("BMP", "*.bmp")
-            ]
+                title="Guardar imagen procesada",
+                defaultextension=".png",
+                filetypes=[
+                    ("PNG", "*.png")
+                ]
         )
 
         if not ruta:
             return
-
 
         # Convertimos nuevamente de 0-1 a uint8.
         imagen_uint8 = (
@@ -524,7 +639,6 @@ class AppPDI:
             ) * 255
         ).astype(np.uint8)
 
-
         # NumPy -> Pillow y guardamos.
         imagen_pil = Image.fromarray(
             imagen_uint8
@@ -534,11 +648,9 @@ class AppPDI:
             ruta
         )
 
-
         self.estado.config(
             text="Imagen resultado guardada correctamente."
         )
-
 
     # ========================================================
     # HISTOGRAMA
@@ -547,43 +659,31 @@ class AppPDI:
     def mostrar_histograma(self):
 
         if self.imagen_entrada is None:
-
             messagebox.showwarning(
                 "Atención",
                 "Primero abrí una imagen."
             )
-
             return
 
-
-        # Elegimos cuál de las dos imágenes analizar.
         if self.histograma_de.get() == "Entrada":
-
             imagen = self.imagen_entrada
             nombre = "Entrada"
-
         else:
-
             imagen = self.imagen_procesada
             nombre = "Resultado"
 
-
-        # Para este primer histograma convertimos la imagen
-        # RGB a una intensidad promedio.
         gris = imagen.mean(
             axis=2
         )
 
-
-        # Matplotlib muestra el histograma en una ventana aparte.
-        plt.figure(
-            f"Histograma - {nombre}"
-        )
+        intensidades = (
+            gris * 255
+        ).astype(np.uint8)
 
         plt.hist(
-            gris.reshape(-1),
-            bins=256,
-            range=(0, 1)
+            intensidades.reshape(-1),
+            bins=32,
+            color="gray"
         )
 
         plt.title(
@@ -591,26 +691,22 @@ class AppPDI:
         )
 
         plt.xlabel(
-            "Intensidad"
+            "Valor de intensidad (0-255)"
         )
 
         plt.ylabel(
-            "Cantidad de píxeles"
+            "Frecuencia"
         )
 
         plt.show()
-
 
 # ============================================================
 # PUNTO DE ENTRADA
 # ============================================================
 
 if __name__ == "__main__":
-
     ventana = tk.Tk()
-
     app = AppPDI(
         ventana
     )
-
     ventana.mainloop()
