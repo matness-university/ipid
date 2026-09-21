@@ -175,11 +175,13 @@ def sum_yiq(image_a, image_b, averaged=False):
     Realiza una cuasi-suma entre dos imágenes
     trabajando en el espacio YIQ.
 
-    La luminancia Y se suma de forma clampeada
-    o promediada.
+    En la suma promediada se promedian directamente
+    las componentes Y, I y Q.
 
-    La cromaticidad I y Q se obtiene mediante
-    una interpolación ponderada por las luminancias.
+    En la suma clampeada, la luminancia se suma y
+    clampea, mientras que la cromaticidad se obtiene
+    mediante una interpolación ponderada por las
+    luminancias.
     """
 
     yiq_a = rgb_to_yiq(image_a)
@@ -191,13 +193,18 @@ def sum_yiq(image_a, image_b, averaged=False):
     yb = yiq_b[:, :, 0]
 
     # ----------------------------------------------------
-    # Luminancia
+    # Suma promediada
     # ----------------------------------------------------
 
     if averaged:
-        result[:, :, 0] = (
-            ya + yb
+        result = (
+            yiq_a + yiq_b
         ) / 2
+
+    # ----------------------------------------------------
+    # Suma clampeada
+    # ----------------------------------------------------
+
     else:
         result[:, :, 0] = np.clip(
             ya + yb,
@@ -205,31 +212,27 @@ def sum_yiq(image_a, image_b, averaged=False):
             1
         )
 
-    # ----------------------------------------------------
-    # Cromaticidad
-    # ----------------------------------------------------
+        luminance_sum = (
+            ya + yb
+        )
 
-    luminance_sum = (
-        ya + yb
-    )
+        # Evitamos dividir por cero cuando ambos píxeles
+        # tienen luminancia cero.
+        denominator = np.where(
+            luminance_sum == 0,
+            1,
+            luminance_sum
+        )
 
-    # Evitamos dividir por cero cuando ambos píxeles
-    # tienen luminancia cero.
-    denominator = np.where(
-        luminance_sum == 0,
-        1,
-        luminance_sum
-    )
+        result[:, :, 1] = (
+            ya * yiq_a[:, :, 1]
+            + yb * yiq_b[:, :, 1]
+        ) / denominator
 
-    result[:, :, 1] = (
-        ya * yiq_a[:, :, 1]
-        + yb * yiq_b[:, :, 1]
-    ) / denominator
-
-    result[:, :, 2] = (
-        ya * yiq_a[:, :, 2]
-        + yb * yiq_b[:, :, 2]
-    ) / denominator
+        result[:, :, 2] = (
+            ya * yiq_a[:, :, 2]
+            + yb * yiq_b[:, :, 2]
+        ) / denominator
 
     return yiq_to_rgb(
         result
